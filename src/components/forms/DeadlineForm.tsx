@@ -37,16 +37,6 @@ const PRIORITY_OPTIONS = [
   { value: 4, label: 'Urgent' },
 ]
 
-const DEFAULT_VALUES: DeadlineFormValues = {
-  title: '',
-  category: 'assignment',
-  dueAt: '',
-  priority: 2,
-  description: '',
-  note: '',
-  courseEventId: '',
-}
-
 function normalizeDateTimeLocalValue(value: string) {
   const normalizedValue = value.trim()
 
@@ -73,6 +63,27 @@ function normalizeDateTimeLocalValue(value: string) {
   const minute = String(parsedDate.getMinutes()).padStart(2, '0')
 
   return `${year}-${month}-${day}T${hour}:${minute}`
+}
+
+function getDefaultDueAt() {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}T23:59`
+}
+
+function buildDefaultValues(): DeadlineFormValues {
+  return {
+    title: '',
+    category: 'assignment',
+    dueAt: getDefaultDueAt(),
+    priority: 2,
+    description: '',
+    note: '',
+    courseEventId: '',
+  }
 }
 
 function buildValuesFromInitialValues(initialValues: DeadlineItem): DeadlineFormValues {
@@ -113,6 +124,14 @@ function combineDateAndTime(date: string, time: string) {
   return `${date}T${time || '23:59'}`
 }
 
+function formatDateInputValue(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
 function validate(values: DeadlineFormValues): DeadlineFormErrors {
   const errors: DeadlineFormErrors = {}
 
@@ -133,7 +152,7 @@ export function DeadlineForm({
   onSubmit,
 }: DeadlineFormProps) {
   const [values, setValues] = useState<DeadlineFormValues>(() =>
-    initialValues ? buildValuesFromInitialValues(initialValues) : DEFAULT_VALUES,
+    initialValues ? buildValuesFromInitialValues(initialValues) : buildDefaultValues(),
   )
   const [errors, setErrors] = useState<DeadlineFormErrors>({})
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -141,7 +160,7 @@ export function DeadlineForm({
     useState<DeadlineFormPayload | null>(null)
 
   useEffect(() => {
-    setValues(initialValues ? buildValuesFromInitialValues(initialValues) : DEFAULT_VALUES)
+    setValues(initialValues ? buildValuesFromInitialValues(initialValues) : buildDefaultValues())
     setErrors({})
     setSubmittedPayload(null)
   }, [initialValues])
@@ -197,6 +216,24 @@ export function DeadlineForm({
     onSubmit?.(payload)
   }
 
+  function applyDueDatePreset(preset: 'today' | 'tomorrow' | 'nextWeek') {
+    const now = new Date()
+    const nextDate = new Date(now)
+
+    if (preset === 'tomorrow') {
+      nextDate.setDate(now.getDate() + 1)
+    }
+
+    if (preset === 'nextWeek') {
+      nextDate.setDate(now.getDate() + 7)
+    }
+
+    updateField(
+      'dueAt',
+      combineDateAndTime(formatDateInputValue(nextDate), splitDateAndTime(values.dueAt).time),
+    )
+  }
+
   return (
     <section className="rounded-2xl border border-slate-200 bg-white">
       <div className="border-b border-slate-200 px-4 py-3">
@@ -248,7 +285,7 @@ export function DeadlineForm({
             </label>
             <select
               id="deadline-category"
-              value={values.category}
+              value={String(values.category)}
               onChange={(event) =>
                 updateField('category', event.target.value as DeadlineCategory)
               }
@@ -271,14 +308,14 @@ export function DeadlineForm({
             </label>
             <select
               id="deadline-priority"
-              value={values.priority}
+              value={String(values.priority)}
               onChange={(event) =>
                 updateField('priority', Number(event.target.value))
               }
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
             >
               {PRIORITY_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
+                <option key={option.value} value={String(option.value)}>
                   {option.label}
                 </option>
               ))}
@@ -288,6 +325,29 @@ export function DeadlineForm({
 
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-slate-600">Due at</label>
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => applyDueDatePreset('today')}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 active:bg-slate-50"
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => applyDueDatePreset('tomorrow')}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 active:bg-slate-50"
+            >
+              Tomorrow
+            </button>
+            <button
+              type="button"
+              onClick={() => applyDueDatePreset('nextWeek')}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 active:bg-slate-50"
+            >
+              +7 days
+            </button>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <input
               type="date"
@@ -319,7 +379,7 @@ export function DeadlineForm({
             />
           </div>
           <p className="text-[11px] leading-5 text-slate-500">
-            Pick a date, then a time. Default time stays at 23:59 until you change it.
+            Use quick buttons or pick a date, then a time. Default time stays at 23:59 until you change it.
           </p>
           {errors.dueAt ? (
             <p className="text-xs text-rose-600">{errors.dueAt}</p>

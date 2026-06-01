@@ -11,6 +11,8 @@ export type SemesterFormValues = {
 type SemesterSettingsSectionProps = {
   semesters: Semester[]
   form: SemesterFormValues
+  errorMessage?: string
+  successMessage?: string
   onFormChange: (updater: (current: SemesterFormValues) => SemesterFormValues) => void
   onSwitchSemester: (semesterId: string) => void
   onCreateSemester: () => void
@@ -19,6 +21,8 @@ type SemesterSettingsSectionProps = {
 export function SemesterSettingsSection({
   semesters,
   form,
+  errorMessage,
+  successMessage,
   onFormChange,
   onSwitchSemester,
   onCreateSemester,
@@ -63,6 +67,12 @@ export function SemesterSettingsSection({
           </button>
         ))}
       </div>
+
+      {successMessage ? (
+        <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-medium text-emerald-900">
+          {successMessage}
+        </div>
+      ) : null}
 
       <div className="mt-4 space-y-3 rounded-2xl border border-slate-200 bg-white p-3">
         <h3 className="text-sm font-semibold text-slate-900">Add semester</h3>
@@ -131,7 +141,7 @@ export function SemesterSettingsSection({
               className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none"
             />
             <span className="block text-[11px] leading-5 text-slate-500">
-              The Monday or first day used for week 1.
+              The Monday or first day used for week 1. If empty, start date is used.
             </span>
           </label>
           <label className="space-y-1">
@@ -153,6 +163,9 @@ export function SemesterSettingsSection({
             </span>
           </label>
         </div>
+        {errorMessage ? (
+          <p className="text-xs text-rose-600">{errorMessage}</p>
+        ) : null}
         <button
           type="button"
           onClick={onCreateSemester}

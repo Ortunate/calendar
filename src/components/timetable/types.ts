@@ -17,6 +17,7 @@ export type TimetableEvent = {
   eventId: string
   title: string
   type: 'course' | 'exam' | 'meeting' | 'activity' | 'custom'
+  description: string
   location: string
   note: string
   color: string

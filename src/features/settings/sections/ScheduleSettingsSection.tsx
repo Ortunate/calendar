@@ -14,6 +14,7 @@ type ScheduleSettingsSectionProps = {
   currentProfileName: string
   timeSlots: TimeSlot[]
   timeSlotForm: TimeSlotFormValues
+  errorMessage?: string
   editingTimeSlotId: string | null
   onEditTimeSlot: (slot: TimeSlot) => void
   onTimeSlotFormChange: (updater: (current: TimeSlotFormValues) => TimeSlotFormValues) => void
@@ -21,10 +22,20 @@ type ScheduleSettingsSectionProps = {
   onResetTimeSlotForm: () => void
 }
 
+function formatTimeSlotMeta(slot: TimeSlot) {
+  const timeText =
+    slot.startTime && slot.endTime
+      ? `${slot.startTime} - ${slot.endTime}`
+      : slot.startTime || slot.endTime || 'time not set'
+
+  return `${timeText} | units ${slot.startUnit}-${slot.endUnit} | order ${slot.order}`
+}
+
 export function ScheduleSettingsSection({
   currentProfileName,
   timeSlots,
   timeSlotForm,
+  errorMessage,
   editingTimeSlotId,
   onEditTimeSlot,
   onTimeSlotFormChange,
@@ -57,7 +68,7 @@ export function ScheduleSettingsSection({
               <div>
                 <p className="text-sm font-semibold text-slate-900">{slot.label}</p>
                 <p className="mt-1 text-xs text-slate-500">
-                  {slot.startTime} - {slot.endTime} | order {slot.order}
+                  {formatTimeSlotMeta(slot)}
                 </p>
               </div>
               <button
@@ -114,6 +125,9 @@ export function ScheduleSettingsSection({
             </span>
           </label>
         </div>
+        {errorMessage ? (
+          <p className="text-xs text-rose-600">{errorMessage}</p>
+        ) : null}
         <div className="grid grid-cols-2 gap-3">
           <label className="space-y-1">
             <span className="text-[11px] font-medium text-slate-600">Start time</span>

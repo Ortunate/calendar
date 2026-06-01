@@ -142,6 +142,7 @@ export function buildWeeklyTimetableEvents({
         eventId: event.id,
         title: event.title,
         type: event.type,
+        description: event.description,
         location: event.location,
         note: event.note,
         color: event.color,

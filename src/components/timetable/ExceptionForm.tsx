@@ -30,6 +30,15 @@ type ExceptionFormValues = {
 
 type ExceptionFormErrors = Partial<Record<keyof ExceptionFormValues, string>>
 
+function formatTimeSlotOption(slot: TimeSlot) {
+  const timeText =
+    slot.startTime && slot.endTime
+      ? `${slot.startTime}-${slot.endTime}`
+      : slot.startTime || slot.endTime || 'time not set'
+
+  return `${slot.label} (${timeText})`
+}
+
 function getActionTitle(actionType: EventException['actionType']) {
   switch (actionType) {
     case 'cancel':
@@ -295,7 +304,7 @@ export function ExceptionForm({
                   <option value="">Select a time slot</option>
                   {timeSlots.map((slot) => (
                     <option key={slot.id} value={slot.id}>
-                      {slot.label} ({slot.startTime}-{slot.endTime})
+                      {formatTimeSlotOption(slot)}
                     </option>
                   ))}
                 </select>

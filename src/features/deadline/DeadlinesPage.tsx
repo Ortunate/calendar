@@ -21,6 +21,10 @@ export function DeadlinesPage() {
   const [selectedItem, setSelectedItem] = useState<DeadlineListItem | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [editingDeadline, setEditingDeadline] = useState<DeadlineItem | null>(null)
+  const [saveMessage, setSaveMessage] = useState('')
+  const [recentlyUpdatedDeadlineId, setRecentlyUpdatedDeadlineId] = useState<string | null>(
+    null,
+  )
 
   const groups = buildDeadlineGroups(items)
 
@@ -33,6 +37,9 @@ export function DeadlinesPage() {
 
     setRawDeadlines(snapshot.rawDeadlines)
     setItems(snapshot.items)
+    setSelectedItem((current) =>
+      current ? snapshot.items.find((item) => item.id === current.id) ?? null : null,
+    )
   }
 
   async function handleToggleStatus(id: string) {
@@ -47,6 +54,8 @@ export function DeadlinesPage() {
 
   async function handleCreateDeadline(payload: DeadlineFormPayload) {
     await createDeadlineFromPayload(payload)
+    setSaveMessage('Deadline created')
+    setRecentlyUpdatedDeadlineId(null)
     setShowForm(false)
     await refreshDeadlines()
   }
@@ -57,6 +66,8 @@ export function DeadlinesPage() {
     }
 
     await updateDeadlineFromPayload(editingDeadline, payload)
+    setSaveMessage('Deadline updated')
+    setRecentlyUpdatedDeadlineId(editingDeadline.id)
     setEditingDeadline(null)
     setShowForm(false)
     await refreshDeadlines()
@@ -65,11 +76,14 @@ export function DeadlinesPage() {
   async function handleDeleteDeadline(id: string) {
     await deleteDeadlineById(id)
     setSelectedItem(null)
+    setRecentlyUpdatedDeadlineId((current) => (current === id ? null : current))
     await refreshDeadlines()
   }
 
   function handleStartCreateDeadline() {
     setEditingDeadline(null)
+    setSaveMessage('')
+    setRecentlyUpdatedDeadlineId(null)
     setShowForm((current) => !current)
   }
 
@@ -82,6 +96,8 @@ export function DeadlinesPage() {
 
     setEditingDeadline(matchedDeadline)
     setSelectedItem(null)
+    setSaveMessage('')
+    setRecentlyUpdatedDeadlineId(null)
     setShowForm(true)
   }
 
@@ -110,6 +126,11 @@ export function DeadlinesPage() {
         >
           Add demo DDL
         </button>
+        {saveMessage ? (
+          <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-medium text-emerald-900">
+            {saveMessage}
+          </div>
+        ) : null}
       </section>
 
       <DeadlineEditorSheet
@@ -126,6 +147,7 @@ export function DeadlinesPage() {
         <DeadlineSection
           key={group.key}
           group={group}
+          recentlyUpdatedId={recentlyUpdatedDeadlineId}
           onToggleStatus={handleToggleStatus}
           onOpen={setSelectedItem}
         />

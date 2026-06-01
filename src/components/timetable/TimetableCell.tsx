@@ -16,7 +16,7 @@ export function TimetableCell({
 
   if (!primaryEvent) {
     return (
-      <div className="h-full min-h-24 rounded-xl border border-dashed border-slate-200 bg-slate-50/80 p-2">
+      <div className="h-full min-h-20 rounded-lg border border-dashed border-slate-200 bg-slate-50/80 p-1">
         <div className="text-[11px] text-slate-300"> </div>
       </div>
     )
@@ -35,26 +35,20 @@ export function TimetableCell({
     <button
       type="button"
       onClick={handleClick}
-      className="flex h-full min-h-24 w-full flex-col rounded-xl border px-2.5 py-2 text-left active:scale-[0.99] active:opacity-90"
+      className="flex h-full min-h-20 w-full flex-col rounded-lg border px-1.5 py-1.5 text-left active:scale-[0.99] active:opacity-90"
       style={{
         backgroundColor: `${primaryEvent.color}18`,
         borderColor: `${primaryEvent.color}50`,
       }}
     >
       <span
-        className="line-clamp-2 text-xs font-semibold leading-4 text-slate-900"
+        className="line-clamp-2 text-[10px] font-semibold leading-3.5 text-slate-900"
         title={primaryEvent.title}
       >
         {primaryEvent.title}
       </span>
-      <span
-        className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-600"
-        title={primaryEvent.location}
-      >
-        {primaryEvent.location}
-      </span>
       {extraCount > 0 ? (
-        <span className="mt-2 text-[11px] font-medium text-slate-700">
+        <span className="mt-1 text-[10px] font-medium text-slate-700">
           +{extraCount} more
         </span>
       ) : null}

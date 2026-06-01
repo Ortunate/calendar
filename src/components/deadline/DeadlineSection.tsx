@@ -3,12 +3,14 @@ import type { DeadlineGroup, DeadlineListItem } from './types'
 
 type DeadlineSectionProps = {
   group: DeadlineGroup
+  recentlyUpdatedId?: string | null
   onToggleStatus: (id: string) => void
   onOpen: (item: DeadlineListItem) => void
 }
 
 export function DeadlineSection({
   group,
+  recentlyUpdatedId = null,
   onToggleStatus,
   onOpen,
 }: DeadlineSectionProps) {
@@ -27,6 +29,7 @@ export function DeadlineSection({
             <DeadlineItemCard
               key={item.id}
               item={item}
+              recentlyUpdated={item.id === recentlyUpdatedId}
               onToggleStatus={onToggleStatus}
               onOpen={onOpen}
             />

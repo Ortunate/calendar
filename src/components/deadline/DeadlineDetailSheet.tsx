@@ -1,7 +1,7 @@
 import type { DeadlineListItem } from './types'
 
 function priorityLabel(priority: number) {
-  if (priority >= 4) return 'high'
+  if (priority >= 3) return 'high'
   if (priority >= 2) return 'medium'
   return 'low'
 }

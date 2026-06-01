@@ -10,27 +10,26 @@ import { deadlineRepository } from '../../db/repositories/deadlineRepository'
 import { db } from '../../db/schema'
 import type { DeadlineItem } from '../../types/deadline'
 
-const NOW = dayjs('2026-04-08T09:00:00')
-
 export type DeadlineSnapshot = {
   rawDeadlines: DeadlineItem[]
   items: DeadlineListItem[]
 }
 
 function getGroupKey(item: DeadlineListItem): DeadlineGroupKey {
+  const now = dayjs()
   const due = dayjs(item.dueAt)
 
-  if (due.isSame(NOW, 'day')) {
+  if (due.isSame(now, 'day')) {
     return 'today'
   }
 
-  if (due.isSame(NOW.add(1, 'day'), 'day')) {
+  if (due.isSame(now.add(1, 'day'), 'day')) {
     return 'tomorrow'
   }
 
   if (
-    due.isAfter(NOW.endOf('day')) &&
-    due.isBefore(NOW.endOf('week').add(1, 'millisecond'))
+    due.isAfter(now.endOf('day')) &&
+    due.isBefore(now.endOf('week').add(1, 'millisecond'))
   ) {
     return 'thisWeek'
   }

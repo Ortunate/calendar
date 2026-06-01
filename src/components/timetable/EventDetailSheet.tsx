@@ -85,6 +85,14 @@ export function EventDetailSheet({
           </div>
           <div>
             <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+              Details
+            </dt>
+            <dd className="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-800">
+              {event.description}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
               Location
             </dt>
             <dd className="mt-1 text-sm text-slate-800">{event.location}</dd>
@@ -124,7 +132,7 @@ export function EventDetailSheet({
               onClick={() => onCancelOccurrence(event)}
               className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 active:bg-slate-100"
             >
-              Cancel this occurrence
+              Cancel
             </button>
           ) : null}
           {onRelocateOccurrence ? (
@@ -133,7 +141,7 @@ export function EventDetailSheet({
               onClick={() => onRelocateOccurrence(event)}
               className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 active:bg-slate-100"
             >
-              Relocate this occurrence
+              Relocate
             </button>
           ) : null}
           {onRescheduleOccurrence ? (
@@ -142,7 +150,7 @@ export function EventDetailSheet({
               onClick={() => onRescheduleOccurrence(event)}
               className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 active:bg-slate-100"
             >
-              Reschedule this occurrence
+              Reschedule
             </button>
           ) : null}
           {onAddExtraOccurrence ? (
@@ -151,7 +159,7 @@ export function EventDetailSheet({
               onClick={() => onAddExtraOccurrence(event)}
               className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 active:bg-slate-100"
             >
-              Add extra occurrence
+              Extra
             </button>
           ) : null}
         </div>

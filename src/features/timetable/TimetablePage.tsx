@@ -4,6 +4,7 @@ import { EventForm } from '../../components/forms/EventForm'
 import type {
   EventFormInitialValues,
   EventFormPayload,
+  EventFormSubmitOptions,
 } from '../../components/forms/EventForm'
 import { ExceptionForm } from '../../components/timetable/ExceptionForm'
 import type { ExceptionFormPayload } from '../../components/timetable/ExceptionForm'
@@ -29,6 +30,23 @@ import {
   updateExceptionById,
   updateCourseFromPayload,
 } from './timetableData'
+
+function formatSavedSummary(
+  payload: EventFormPayload,
+  slots: TimeSlot[],
+) {
+  const weekdayLabel =
+    ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][payload.recurringRule.weekday - 1] ??
+    'Mon'
+  const slot =
+    slots.find((item) => item.id === payload.recurringRule.timeSlotId)?.label ?? 'Unknown slot'
+  const weekSummary =
+    payload.recurringRule.weekMode === 'custom' && payload.recurringRule.customWeeks.length > 0
+      ? `Custom weeks ${payload.recurringRule.customWeeks.join(', ')}`
+      : `Weeks ${payload.recurringRule.startWeek}-${payload.recurringRule.endWeek}`
+
+  return `Saved to ${weekdayLabel} · ${slot} · ${weekSummary}`
+}
 
 type TimetablePageProps = {
   displaySettings: DisplaySettings
@@ -65,6 +83,8 @@ export function TimetablePage({ displaySettings }: TimetablePageProps) {
   const [rawEvents, setRawEvents] = useState<Event[]>([])
   const [rawRules, setRawRules] = useState<RecurringEventRule[]>([])
   const [rawExceptions, setRawExceptions] = useState<EventException[]>([])
+  const [currentWeekIndex, setCurrentWeekIndex] = useState<number | null>(null)
+  const [saveSummary, setSaveSummary] = useState('')
 
   useEffect(() => {
     setShowWeekday(displaySettings.showWeekdayInHeader)
@@ -80,9 +100,10 @@ export function TimetablePage({ displaySettings }: TimetablePageProps) {
   async function refreshTimetable() {
     const snapshot = await loadTimetableSnapshot()
     const activeSemester = snapshot.semester
+    const nextSemesterName = activeSemester?.name ?? 'Current Semester'
 
     setCurrentSemester(activeSemester)
-    setSemesterName(activeSemester?.name ?? 'Current Semester')
+    setSemesterName(nextSemesterName)
     setTimeSlots(snapshot.timeSlots)
     setRawEvents(snapshot.events)
     setRawRules(snapshot.rules)
@@ -90,6 +111,7 @@ export function TimetablePage({ displaySettings }: TimetablePageProps) {
 
     if (!activeSemester) {
       setCurrentWeekLabel('Week --')
+      setCurrentWeekIndex(null)
       setDays([])
       setWeekEvents([])
       return
@@ -114,6 +136,7 @@ export function TimetablePage({ displaySettings }: TimetablePageProps) {
     })
 
     setCurrentWeekLabel(weeklyTimetable.weekLabel)
+    setCurrentWeekIndex(weeklyTimetable.weekIndex)
     setDays(weeklyTimetable.dateRange?.days ?? [])
     setWeekEvents(weeklyTimetable.events)
   }
@@ -123,11 +146,15 @@ export function TimetablePage({ displaySettings }: TimetablePageProps) {
     await refreshTimetable()
   }
 
-  async function handleCreateCourse(payload: EventFormPayload) {
-    await createCourseFromPayload(payload)
-    setAppendRuleCourse(null)
+  async function handleCreateCourse(
+    payload: EventFormPayload,
+    options: EventFormSubmitOptions,
+  ) {
+    const createdCourse = await createCourseFromPayload(payload)
+    setSaveSummary(formatSavedSummary(payload, timeSlots))
+    setAppendRuleCourse(options.addAnother ? createdCourse : null)
     setEditingCourse(null)
-    setShowForm(false)
+    setShowForm(options.addAnother)
     await refreshTimetable()
   }
 
@@ -137,6 +164,7 @@ export function TimetablePage({ displaySettings }: TimetablePageProps) {
     }
 
     await updateCourseFromPayload(editingCourse, payload, currentSemester?.id)
+    setSaveSummary(formatSavedSummary(payload, timeSlots))
     setEditingCourse(null)
     setAppendRuleCourse(null)
     setShowForm(false)
@@ -149,6 +177,7 @@ export function TimetablePage({ displaySettings }: TimetablePageProps) {
     }
 
     await addRecurringRuleToEvent(appendRuleCourse.event.id, payload)
+    setSaveSummary(formatSavedSummary(payload, timeSlots))
     setAppendRuleCourse(null)
     setShowForm(false)
     await refreshTimetable()
@@ -163,6 +192,7 @@ export function TimetablePage({ displaySettings }: TimetablePageProps) {
   function handleStartCreateCourse() {
     setEditingCourse(null)
     setAppendRuleCourse(null)
+    setSaveSummary('')
     setShowForm((current) => !current)
   }
 
@@ -180,6 +210,7 @@ export function TimetablePage({ displaySettings }: TimetablePageProps) {
     })
     setAppendRuleCourse(null)
     setSelectedEvent(null)
+    setSaveSummary('')
     setShowForm(true)
   }
 
@@ -197,6 +228,7 @@ export function TimetablePage({ displaySettings }: TimetablePageProps) {
       recurringRule: matchedRule,
     })
     setSelectedEvent(null)
+    setSaveSummary('')
     setShowForm(true)
   }
 
@@ -290,6 +322,10 @@ export function TimetablePage({ displaySettings }: TimetablePageProps) {
         onToggleTime={() => setShowTime((value) => !value)}
       />
 
+      <div className="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-xs font-medium text-sky-800">
+        Active semester: {semesterName}
+      </div>
+
       <TimetableGrid
         days={days}
         slots={timeSlots}
@@ -318,6 +354,11 @@ export function TimetablePage({ displaySettings }: TimetablePageProps) {
             {showForm && !editingCourse && !appendRuleCourse ? 'Hide form' : 'Add event'}
           </button>
         </div>
+        {saveSummary ? (
+          <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs text-emerald-900">
+            {saveSummary}
+          </div>
+        ) : null}
         <button
           type="button"
           onClick={() => void handleAddDemoCourse()}
@@ -328,20 +369,62 @@ export function TimetablePage({ displaySettings }: TimetablePageProps) {
       </section>
 
       {showForm ? (
-        <EventForm
-          timeSlots={timeSlots}
-          totalWeeks={currentSemester?.totalWeeks ?? 20}
-          semesterId={currentSemester?.id}
-          mode={editingCourse ? 'edit' : appendRuleCourse ? 'append' : 'create'}
-          initialValues={editingCourse ?? appendRuleCourse}
-          onSubmit={(payload) =>
-            void (editingCourse
-              ? handleUpdateCourse(payload)
-              : appendRuleCourse
-                ? handleAppendRule(payload)
-                : handleCreateCourse(payload))
-          }
-        />
+        <div className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md px-3 pb-3">
+          <div
+            className="absolute inset-0 -top-[100vh] bg-slate-900/20"
+            onClick={() => {
+              setShowForm(false)
+              setEditingCourse(null)
+              setAppendRuleCourse(null)
+            }}
+            aria-hidden="true"
+          />
+          <section className="relative max-h-[88vh] overflow-y-auto rounded-3xl border border-slate-200 bg-white shadow-lg">
+            <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-4 py-3">
+              <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-slate-200" />
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    {editingCourse
+                      ? 'Edit event'
+                      : appendRuleCourse
+                        ? 'Add weekly occurrence'
+                        : 'New event'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForm(false)
+                    setEditingCourse(null)
+                    setAppendRuleCourse(null)
+                  }}
+                  className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 active:bg-slate-200"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="p-3">
+              <EventForm
+                timeSlots={timeSlots}
+                totalWeeks={currentSemester?.totalWeeks ?? 20}
+                semesterId={currentSemester?.id}
+                currentVisibleWeek={currentWeekIndex}
+                mode={editingCourse ? 'edit' : appendRuleCourse ? 'append' : 'create'}
+                initialValues={editingCourse ?? appendRuleCourse}
+                onSubmit={(payload, options) =>
+                  void (editingCourse
+                    ? handleUpdateCourse(payload)
+                    : appendRuleCourse
+                      ? handleAppendRule(payload)
+                      : handleCreateCourse(payload, options))
+                }
+              />
+            </div>
+          </section>
+        </div>
       ) : null}
 
       <ExceptionForm

@@ -126,6 +126,7 @@ export function applyEventExceptionsToWeek({
         eventId: sourceEvent.id,
         title: sourceEvent.title,
         type: sourceEvent.type,
+        description: sourceEvent.description,
         location:
           exception.newLocation ?? sourceOccurrence?.location ?? sourceEvent.location,
         note: sourceEvent.note,
@@ -158,6 +159,7 @@ export function applyEventExceptionsToWeek({
         eventId: sourceEvent.id,
         title: sourceEvent.title,
         type: sourceEvent.type,
+        description: sourceEvent.description,
         location:
           exception.newLocation ?? sourceOccurrence?.location ?? sourceEvent.location,
         note: sourceEvent.note,

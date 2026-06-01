@@ -2,18 +2,20 @@ import type { DeadlineListItem } from './types'
 
 type DeadlineItemCardProps = {
   item: DeadlineListItem
+  recentlyUpdated?: boolean
   onToggleStatus: (id: string) => void
   onOpen: (item: DeadlineListItem) => void
 }
 
 function priorityLabel(priority: number) {
-  if (priority >= 4) return 'High'
+  if (priority >= 3) return 'High'
   if (priority >= 2) return 'Medium'
   return 'Low'
 }
 
 export function DeadlineItemCard({
   item,
+  recentlyUpdated = false,
   onToggleStatus,
   onOpen,
 }: DeadlineItemCardProps) {
@@ -54,7 +56,7 @@ export function DeadlineItemCard({
               className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-medium ${
                 isDone
                   ? 'bg-slate-100 text-slate-500'
-                  : item.priority >= 4
+                  : item.priority >= 3
                     ? 'bg-rose-50 text-rose-700'
                     : item.priority >= 2
                       ? 'bg-amber-50 text-amber-700'
@@ -70,6 +72,11 @@ export function DeadlineItemCard({
             <span>{isDone ? 'Done' : 'Pending'}</span>
             {item.courseName ? <span>{item.courseName}</span> : null}
           </div>
+          {recentlyUpdated ? (
+            <div className="mt-2 inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700">
+              Updated
+            </div>
+          ) : null}
         </button>
       </div>
     </div>

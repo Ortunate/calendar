@@ -46,20 +46,28 @@ export async function createCourseFromPayload(payload: EventFormPayload) {
   const eventId = crypto.randomUUID()
   const ruleId = crypto.randomUUID()
 
-  await db.events.add({
+  const event = {
     ...payload.event,
     id: eventId,
     semesterId: (await db.semesters.filter((item) => item.isCurrent).first())?.id ??
       payload.event.semesterId,
     createdAt: timestamp,
     updatedAt: timestamp,
-  })
+  }
 
-  await db.recurringEventRules.add({
+  const recurringRule = {
     ...payload.recurringRule,
     id: ruleId,
     eventId,
-  })
+  }
+
+  await db.events.add(event)
+  await db.recurringEventRules.add(recurringRule)
+
+  return {
+    event,
+    recurringRule,
+  }
 }
 
 export async function addRecurringRuleToEvent(
@@ -68,6 +76,7 @@ export async function addRecurringRuleToEvent(
 ) {
   await db.events.update(eventId, {
     title: payload.event.title,
+    description: payload.event.description,
     location: payload.event.location,
     note: payload.event.note,
     color: payload.event.color,
@@ -90,6 +99,7 @@ export async function updateCourseFromPayload(
 
   await db.events.update(editingCourse.event.id, {
     title: payload.event.title,
+    description: payload.event.description,
     location: payload.event.location,
     note: payload.event.note,
     color: payload.event.color,

@@ -17,6 +17,12 @@ function buildCellKey(dayKey: string, slotId: string) {
   return `${dayKey}:${slotId}`
 }
 
+function formatSlotTime(startTime: string, endTime: string) {
+  if (startTime && endTime) return `${startTime}\n${endTime}`
+  if (startTime || endTime) return startTime || endTime
+  return 'time not set'
+}
+
 export function TimetableGrid({
   days,
   slots,
@@ -46,28 +52,28 @@ export function TimetableGrid({
         </div>
       </div>
 
-      <div className="overflow-x-auto px-3 py-3">
-        <div className="min-w-[760px]">
+      <div className="px-2 py-2 sm:px-3 sm:py-3">
+        <div className="w-full">
           <div
-            className="grid gap-2"
-            style={{ gridTemplateColumns: '70px repeat(7, minmax(88px, 1fr))' }}
+            className="grid gap-1.5"
+            style={{ gridTemplateColumns: '58px repeat(7, minmax(0, 1fr))' }}
           >
-            <div className="rounded-xl bg-slate-50 px-2 py-3 text-center text-[11px] font-medium text-slate-400">
+            <div className="rounded-lg bg-slate-50 px-1 py-2 text-center text-[10px] font-medium text-slate-400">
               Slot
             </div>
 
             {days.map((day) => (
               <div
                 key={day.key}
-                className="rounded-xl bg-slate-50 px-2 py-3 text-center"
+                className="rounded-lg bg-slate-50 px-1 py-2 text-center"
               >
                 {showWeekday ? (
-                  <div className="text-[11px] font-semibold text-slate-700">
+                  <div className="text-[10px] font-semibold text-slate-700">
                     {day.weekdayLabel}
                   </div>
                 ) : null}
                 {showDate ? (
-                  <div className="mt-0.5 text-[11px] text-slate-500">
+                  <div className="mt-0.5 text-[10px] text-slate-500">
                     {day.dateLabel}
                   </div>
                 ) : null}
@@ -76,17 +82,21 @@ export function TimetableGrid({
 
             {slots.map((slot) => (
               <div key={slot.id} className="contents">
-                <div className="flex min-h-24 flex-col justify-center rounded-xl bg-slate-50 px-2 text-center">
+                <div className="flex min-h-20 flex-col justify-center rounded-lg bg-slate-50 px-1 text-center">
                   {showSlotLabel || !showTime ? (
-                    <span className="text-xs font-semibold text-slate-700">
+                    <span className="break-words text-[9px] font-semibold leading-3 text-slate-700">
                       {slot.label}
                     </span>
                   ) : null}
                   {showTime || !showSlotLabel ? (
-                    <span className="mt-1 text-[11px] leading-4 text-slate-500">
-                      {slot.startTime}
-                      <br />
-                      {slot.endTime}
+                    <span className="mt-1 text-[9px] leading-3 text-slate-500">
+                      {formatSlotTime(slot.startTime, slot.endTime)
+                        .split('\n')
+                        .map((part, index) => (
+                          <span key={`${part}-${index}`} className="block">
+                            {part}
+                          </span>
+                        ))}
                     </span>
                   ) : null}
                 </div>

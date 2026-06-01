@@ -13,6 +13,7 @@ type TimeSlotOption = {
 
 type EventFormValues = {
   title: string
+  description: string
   location: string
   weekday: Weekday
   timeSlot: string
@@ -31,6 +32,10 @@ export type EventFormPayload = {
   recurringRule: RecurringEventRule
 }
 
+export type EventFormSubmitOptions = {
+  addAnother: boolean
+}
+
 export type EventFormInitialValues = {
   event: Event
   recurringRule: RecurringEventRule
@@ -40,9 +45,10 @@ type EventFormProps = {
   timeSlots: readonly TimeSlotOption[]
   totalWeeks: number
   semesterId?: string
+  currentVisibleWeek?: number | null
   mode?: 'create' | 'edit' | 'append'
   initialValues?: EventFormInitialValues | null
-  onSubmit?: (payload: EventFormPayload) => void
+  onSubmit?: (payload: EventFormPayload, options: EventFormSubmitOptions) => void
 }
 
 const WEEKDAY_OPTIONS: Array<{ value: Weekday; label: string }> = [
@@ -57,6 +63,7 @@ const WEEKDAY_OPTIONS: Array<{ value: Weekday; label: string }> = [
 
 const DEFAULT_VALUES: EventFormValues = {
   title: '',
+  description: '',
   location: '',
   weekday: 1,
   timeSlot: '',
@@ -88,6 +95,7 @@ function buildValuesFromInitialValues(
 
   return {
     title: initialValues.event.title,
+    description: initialValues.event.description,
     location: initialValues.event.location,
     weekday: initialValues.recurringRule.weekday,
     timeSlot: validTimeSlot
@@ -106,6 +114,76 @@ function toggleWeek(currentWeeks: number[], week: number) {
   return currentWeeks.includes(week)
     ? currentWeeks.filter((item) => item !== week)
     : [...currentWeeks, week].sort((left, right) => left - right)
+}
+
+function clampWeek(value: number, totalWeeks: number) {
+  return Math.min(Math.max(value, 1), totalWeeks)
+}
+
+function parseWeekInput(value: string, fallback: number, totalWeeks: number) {
+  const digits = value.replace(/[^\d]/g, '')
+
+  if (!digits) {
+    return fallback
+  }
+
+  return clampWeek(Number(digits), totalWeeks)
+}
+
+function formatWeekSummary(values: EventFormValues) {
+  if (values.weekMode === 'custom') {
+    return values.customWeeks.length > 0
+      ? `Custom weeks ${values.customWeeks.join(', ')}`
+      : 'Custom weeks not selected'
+  }
+
+  return `Weeks ${values.startWeek}-${values.endWeek}`
+}
+
+function getWeekdayLabel(weekday: Weekday) {
+  return WEEKDAY_OPTIONS.find((option) => option.value === weekday)?.label ?? 'Mon'
+}
+
+function formatTimeSlotDetail(slot: TimeSlotOption) {
+  const timeText =
+    slot.startTime && slot.endTime
+      ? `${slot.startTime}-${slot.endTime}`
+      : slot.startTime || slot.endTime || 'time not set'
+  const unitText =
+    typeof slot.startUnit === 'number' && typeof slot.endUnit === 'number'
+      ? ` · units ${slot.startUnit}-${slot.endUnit}`
+      : ''
+
+  return `${timeText}${unitText}`
+}
+
+function buildQuickWeekActions(
+  currentVisibleWeek: number | null,
+  totalWeeks: number,
+) {
+  const nextWeek =
+    currentVisibleWeek && currentVisibleWeek < totalWeeks ? currentVisibleWeek + 1 : null
+
+  return [
+    {
+      key: 'this-week',
+      label: 'This week',
+      value: currentVisibleWeek,
+      disabled: currentVisibleWeek === null,
+    },
+    {
+      key: 'next-week',
+      label: 'Next week',
+      value: nextWeek,
+      disabled: nextWeek === null,
+    },
+    {
+      key: 'full-semester',
+      label: 'Full semester',
+      value: null,
+      disabled: false,
+    },
+  ] as const
 }
 
 function validate(values: EventFormValues): EventFormErrors {
@@ -135,6 +213,7 @@ export function EventForm({
   timeSlots,
   totalWeeks,
   semesterId = 'semester-placeholder',
+  currentVisibleWeek = null,
   mode = 'create',
   initialValues = null,
   onSubmit,
@@ -149,6 +228,12 @@ export function EventForm({
   const [submittedPayload, setSubmittedPayload] = useState<EventFormPayload | null>(
     null,
   )
+  const [submittedSummary, setSubmittedSummary] = useState('')
+  const [submitIntent, setSubmitIntent] = useState<'save' | 'addAnother'>('save')
+  const quickWeekActions = useMemo(
+    () => buildQuickWeekActions(currentVisibleWeek, totalWeeks),
+    [currentVisibleWeek, totalWeeks],
+  )
 
   useEffect(() => {
     setValues(
@@ -158,6 +243,8 @@ export function EventForm({
     )
     setErrors({})
     setSubmittedPayload(null)
+    setSubmittedSummary('')
+    setSubmitIntent('save')
   }, [initialValues, timeSlots, totalWeeks])
 
   useEffect(() => {
@@ -232,6 +319,28 @@ export function EventForm({
     }))
   }
 
+  function applyWeekPreset(preset: 'this-week' | 'next-week' | 'full-semester') {
+    if (preset === 'full-semester') {
+      updateField('startWeek', 1)
+      updateField('endWeek', totalWeeks)
+      return
+    }
+
+    const targetWeek =
+      preset === 'this-week'
+        ? currentVisibleWeek
+        : currentVisibleWeek && currentVisibleWeek < totalWeeks
+          ? currentVisibleWeek + 1
+          : null
+
+    if (!targetWeek) {
+      return
+    }
+
+    updateField('startWeek', targetWeek)
+    updateField('endWeek', targetWeek)
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
@@ -251,7 +360,7 @@ export function EventForm({
         title: values.title.trim(),
         type: 'course',
         location: values.location.trim(),
-        description: '',
+        description: values.description.trim(),
         note: values.note.trim(),
         color: values.color,
         priority: 2,
@@ -274,8 +383,15 @@ export function EventForm({
     }
 
     setSubmittedPayload(payload)
+    const selectedSlot = timeSlots.find((slot) => slot.id === values.timeSlot)
+    const slotLabel = selectedSlot?.label ?? 'Unknown slot'
+    setSubmittedSummary(
+      `Saved to ${getWeekdayLabel(values.weekday)} · ${slotLabel} · ${formatWeekSummary(values)}`,
+    )
     setErrors({})
-    onSubmit?.(payload)
+    onSubmit?.(payload, {
+      addAnother: submitIntent === 'addAnother',
+    })
   }
 
   return (
@@ -284,7 +400,11 @@ export function EventForm({
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-slate-900">
-              {mode === 'edit' ? 'Edit course event' : 'New course event'}
+              {mode === 'edit'
+                ? 'Edit course event'
+                : mode === 'append'
+                  ? 'Add weekly occurrence'
+                  : 'New course event'}
             </h2>
             <p className="mt-1 text-xs text-slate-500">
               {mode === 'edit'
@@ -322,6 +442,23 @@ export function EventForm({
         </div>
 
         <div className="space-y-1.5">
+          <label className="text-xs font-medium text-slate-600" htmlFor="event-description">
+            Details
+          </label>
+          <textarea
+            id="event-description"
+            value={values.description}
+            onChange={(event) => updateField('description', event.target.value)}
+            rows={2}
+            placeholder="Visible course/activity description"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none"
+          />
+          <p className="text-[11px] leading-5 text-slate-500">
+            Use this for course summary, teacher, or anything you want to see later.
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
           <label
             className="text-xs font-medium text-slate-600"
             htmlFor="event-location"
@@ -339,23 +476,25 @@ export function EventForm({
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-slate-600" htmlFor="event-weekday">
+            <span className="text-xs font-medium text-slate-600">
               Weekday
-            </label>
-            <select
-              id="event-weekday"
-              value={values.weekday}
-              onChange={(event) =>
-                updateField('weekday', Number(event.target.value) as Weekday)
-              }
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
-            >
+            </span>
+            <div className="grid grid-cols-4 gap-2">
               {WEEKDAY_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => updateField('weekday', option.value)}
+                  className={`rounded-xl border px-2 py-2 text-xs font-medium ${
+                    values.weekday === option.value
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-200 bg-white text-slate-700 active:bg-slate-50'
+                  }`}
+                >
                   {option.label}
-                </option>
+                </button>
               ))}
-            </select>
+            </div>
           </div>
 
           <div className="space-y-1.5">
@@ -382,11 +521,7 @@ export function EventForm({
                           selected ? 'text-slate-200' : 'text-slate-500'
                         }`}
                       >
-                        {slot.startTime}-{slot.endTime}
-                        {typeof slot.startUnit === 'number' &&
-                        typeof slot.endUnit === 'number'
-                          ? ` · units ${slot.startUnit}-${slot.endUnit}`
-                          : null}
+                        {formatTimeSlotDetail(slot)}
                       </div>
                     </button>
                   )
@@ -403,7 +538,40 @@ export function EventForm({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium text-slate-700">Week range</p>
+              <p className="mt-1 text-[11px] leading-5 text-slate-500">Manual adjust below.</p>
+            </div>
+            <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-slate-500">
+              {formatWeekSummary(values)}
+            </span>
+          </div>
+          <div className="space-y-2 rounded-xl border border-slate-200 bg-white px-3 py-3">
+            <div className="grid grid-cols-3 gap-2">
+              {quickWeekActions.map((action) => (
+                <button
+                  key={action.key}
+                  type="button"
+                  onClick={() =>
+                    applyWeekPreset(
+                      action.key as 'this-week' | 'next-week' | 'full-semester',
+                    )
+                  }
+                  disabled={action.disabled}
+                  className={`rounded-xl border px-2 py-2 text-xs font-medium ${
+                    action.disabled
+                      ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
+                      : 'border-slate-200 bg-white text-slate-700 active:bg-slate-100'
+                  }`}
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <label
               className="text-xs font-medium text-slate-600"
@@ -411,17 +579,35 @@ export function EventForm({
             >
               Start week
             </label>
-            <input
-              id="event-start-week"
-              type="number"
-              min={1}
-              max={totalWeeks}
-              value={values.startWeek}
-              onChange={(event) =>
-                updateField('startWeek', Number(event.target.value) || 1)
-              }
-              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none"
-            />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => updateField('startWeek', clampWeek(values.startWeek - 1, totalWeeks))}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 active:bg-slate-50"
+                aria-label="Decrease start week"
+              >
+                -
+              </button>
+              <input
+                id="event-start-week"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={String(values.startWeek)}
+                onChange={(event) =>
+                  updateField('startWeek', parseWeekInput(event.target.value, values.startWeek, totalWeeks))
+                }
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-center text-sm text-slate-900 outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => updateField('startWeek', clampWeek(values.startWeek + 1, totalWeeks))}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 active:bg-slate-50"
+                aria-label="Increase start week"
+              >
+                +
+              </button>
+            </div>
             {errors.startWeek ? (
               <p className="text-xs text-rose-600">{errors.startWeek}</p>
             ) : null}
@@ -434,21 +620,43 @@ export function EventForm({
             >
               End week
             </label>
-            <input
-              id="event-end-week"
-              type="number"
-              min={1}
-              max={totalWeeks}
-              value={values.endWeek}
-              onChange={(event) =>
-                updateField('endWeek', Number(event.target.value) || 1)
-              }
-              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none"
-            />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => updateField('endWeek', clampWeek(values.endWeek - 1, totalWeeks))}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 active:bg-slate-50"
+                aria-label="Decrease end week"
+              >
+                -
+              </button>
+              <input
+                id="event-end-week"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={String(values.endWeek)}
+                onChange={(event) =>
+                  updateField('endWeek', parseWeekInput(event.target.value, values.endWeek, totalWeeks))
+                }
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-center text-sm text-slate-900 outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => updateField('endWeek', clampWeek(values.endWeek + 1, totalWeeks))}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 active:bg-slate-50"
+                aria-label="Increase end week"
+              >
+                +
+              </button>
+            </div>
             {errors.endWeek ? (
               <p className="text-xs text-rose-600">{errors.endWeek}</p>
             ) : null}
           </div>
+        </div>
+          <p className="text-[11px] leading-5 text-slate-500">
+            Current range: Weeks {values.startWeek}-{values.endWeek}
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -538,43 +746,53 @@ export function EventForm({
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-slate-600" htmlFor="event-note">
-                Note
+                Private note
               </label>
               <textarea
                 id="event-note"
                 value={values.note}
                 onChange={(event) => updateField('note', event.target.value)}
                 rows={3}
-                placeholder="Optional note"
+                placeholder="Optional internal note"
                 className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none"
               />
+              <p className="text-[11px] leading-5 text-slate-500">
+                Keep quick reminders here if you do not want them in the main details field.
+              </p>
             </div>
           </div>
         ) : null}
 
-        <button
-          type="submit"
-          className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white active:opacity-90"
-        >
-          {mode === 'edit'
-            ? 'Save changes'
-            : mode === 'append'
-              ? 'Add weekly occurrence'
-              : 'Create course event'}
-        </button>
+        <div className="space-y-2">
+          <button
+            type="submit"
+            onClick={() => setSubmitIntent('save')}
+            className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white active:opacity-90"
+          >
+            {mode === 'edit'
+              ? 'Save changes'
+              : mode === 'append'
+                ? 'Add weekly occurrence'
+                : 'Create course event'}
+          </button>
+          {mode === 'create' ? (
+            <button
+              type="submit"
+              onClick={() => setSubmitIntent('addAnother')}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 active:bg-slate-50"
+            >
+              Create and add another weekly occurrence
+            </button>
+          ) : null}
+        </div>
       </form>
 
       {submittedPayload ? (
         <div className="border-t border-slate-200 px-4 py-4">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-slate-900">Payload preview</h3>
-            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-500">
-              Local only
-            </span>
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-3">
+            <p className="text-xs font-semibold text-emerald-800">Saved</p>
+            <p className="mt-1 text-sm text-emerald-900">{submittedSummary}</p>
           </div>
-          <pre className="mt-3 overflow-x-auto rounded-2xl bg-slate-950 p-3 text-[11px] leading-5 text-slate-100">
-            {JSON.stringify(submittedPayload, null, 2)}
-          </pre>
         </div>
       ) : null}
     </section>

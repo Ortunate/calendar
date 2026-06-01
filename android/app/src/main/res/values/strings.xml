@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Campus Planner</string>
+    <string name="title_activity_main">Campus Planner</string>
+    <string name="package_name">com.ortunate.calendar</string>
+    <string name="custom_url_scheme">com.ortunate.calendar</string>
+</resources>

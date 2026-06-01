@@ -28,12 +28,27 @@ type SettingsPageProps = {
   onDisplaySettingsChange: (settings: DisplaySettings) => void
 }
 
-const DEFAULT_SEMESTER_FORM: SemesterFormValues = {
-  name: '',
-  startDate: '',
-  endDate: '',
-  weekOneStartDate: '',
-  totalWeeks: 20,
+function formatDateInputValue(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+function buildDefaultSemesterForm(): SemesterFormValues {
+  const startDate = new Date()
+  const endDate = new Date(startDate)
+
+  endDate.setDate(startDate.getDate() + 20 * 7 - 1)
+
+  return {
+    name: '',
+    startDate: formatDateInputValue(startDate),
+    endDate: formatDateInputValue(endDate),
+    weekOneStartDate: formatDateInputValue(startDate),
+    totalWeeks: 20,
+  }
 }
 
 const DEFAULT_TIME_SLOT_FORM: TimeSlotFormValues = {
@@ -56,11 +71,14 @@ export function SettingsPage({
   const [currentProfileName, setCurrentProfileName] = useState('No profile')
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
   const [semesterForm, setSemesterForm] =
-    useState<SemesterFormValues>(DEFAULT_SEMESTER_FORM)
+    useState<SemesterFormValues>(() => buildDefaultSemesterForm())
   const [timeSlotForm, setTimeSlotForm] =
     useState<TimeSlotFormValues>(DEFAULT_TIME_SLOT_FORM)
   const [displayForm, setDisplayForm] = useState<DisplaySettings>(displaySettings)
   const [editingTimeSlotId, setEditingTimeSlotId] = useState<string | null>(null)
+  const [semesterFormError, setSemesterFormError] = useState('')
+  const [semesterSwitchMessage, setSemesterSwitchMessage] = useState('')
+  const [timeSlotFormError, setTimeSlotFormError] = useState('')
   const [showCourseImportPage, setShowCourseImportPage] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -111,6 +129,8 @@ export function SettingsPage({
   }
 
   async function handleSwitchSemester(semesterId: string) {
+    const nextSemesterName =
+      semesters.find((semester) => semester.id === semesterId)?.name ?? 'Selected semester'
     const updates = semesters.map((semester) =>
       db.semesters.update(semester.id, {
         isCurrent: semester.id === semesterId,
@@ -118,6 +138,7 @@ export function SettingsPage({
     )
 
     await Promise.all(updates)
+    setSemesterSwitchMessage(`Switched to ${nextSemesterName}`)
     await hydrateSettings()
   }
 
@@ -125,12 +146,15 @@ export function SettingsPage({
     if (
       !semesterForm.name.trim() ||
       !semesterForm.startDate ||
-      !semesterForm.endDate ||
-      !semesterForm.weekOneStartDate
+      !semesterForm.endDate
     ) {
+      setSemesterFormError('Name, start date, and end date are required.')
       return
     }
 
+    setSemesterFormError('')
+
+    const weekOneStartDate = semesterForm.weekOneStartDate || semesterForm.startDate
     const semesterId = crypto.randomUUID()
     const profileId = crypto.randomUUID()
     const sourceSemester = semesters.find((semester) => semester.isCurrent) ?? null
@@ -161,7 +185,7 @@ export function SettingsPage({
       name: semesterForm.name.trim(),
       startDate: semesterForm.startDate,
       endDate: semesterForm.endDate,
-      weekOneStartDate: semesterForm.weekOneStartDate,
+      weekOneStartDate,
       totalWeeks: semesterForm.totalWeeks,
       scheduleProfileId: profileId,
       isCurrent: true,
@@ -177,7 +201,8 @@ export function SettingsPage({
       )
     }
 
-    setSemesterForm(DEFAULT_SEMESTER_FORM)
+    setSemesterForm(buildDefaultSemesterForm())
+    setSemesterSwitchMessage(`Switched to ${semesterForm.name.trim()}`)
     await hydrateSettings()
   }
 
@@ -200,8 +225,17 @@ export function SettingsPage({
       !timeSlotForm.label.trim() ||
       timeSlotForm.startUnit > timeSlotForm.endUnit
     ) {
+      setTimeSlotFormError(
+        !currentSemesterId
+          ? 'Choose a current semester first.'
+          : !timeSlotForm.label.trim()
+            ? 'Label is required.'
+            : 'Start unit must be before or equal to end unit.',
+      )
       return
     }
+
+    setTimeSlotFormError('')
 
     const semester = semesters.find((item) => item.id === currentSemesterId)
 
@@ -236,6 +270,7 @@ export function SettingsPage({
   function resetTimeSlotForm() {
     setEditingTimeSlotId(null)
     setTimeSlotForm(DEFAULT_TIME_SLOT_FORM)
+    setTimeSlotFormError('')
   }
 
   async function handleExportJson() {
@@ -294,6 +329,8 @@ export function SettingsPage({
       <SemesterSettingsSection
         semesters={semesters}
         form={semesterForm}
+        errorMessage={semesterFormError}
+        successMessage={semesterSwitchMessage}
         onFormChange={(updater) => setSemesterForm(updater)}
         onSwitchSemester={(semesterId) => void handleSwitchSemester(semesterId)}
         onCreateSemester={() => void handleCreateSemester()}
@@ -303,6 +340,7 @@ export function SettingsPage({
         currentProfileName={currentProfileName}
         timeSlots={timeSlots}
         timeSlotForm={timeSlotForm}
+        errorMessage={timeSlotFormError}
         editingTimeSlotId={editingTimeSlotId}
         onEditTimeSlot={beginEditTimeSlot}
         onTimeSlotFormChange={(updater) => setTimeSlotForm(updater)}
